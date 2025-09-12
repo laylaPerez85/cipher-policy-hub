@@ -1,16 +1,7 @@
-import { useContract, useContractWrite, useContractRead } from 'wagmi';
+import { useContractWrite, useContractRead } from 'wagmi';
 import { CipherPolicyHubABI } from '../lib/contract';
 
 const CONTRACT_ADDRESS = '0x...'; // Contract address after deployment
-
-export const useCipherPolicyHub = () => {
-  const contract = useContract({
-    address: CONTRACT_ADDRESS as `0x${string}`,
-    abi: CipherPolicyHubABI,
-  });
-
-  return contract;
-};
 
 export const useCreatePolicy = () => {
   const { write, isLoading, error } = useContractWrite({
