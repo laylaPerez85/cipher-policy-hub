@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { SepoliaConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
-import { euint32, externalEuint32, euint8, ebool, FHE } from "@fhevm/solidity/lib/FHE.sol";
+import { euint32, externalEuint32, euint8, externalEuint8, ebool, FHE } from "@fhevm/solidity/lib/FHE.sol";
 
 contract CipherPolicyHub is SepoliaConfig {
     using FHE for *;
@@ -41,9 +41,11 @@ contract CipherPolicyHub is SepoliaConfig {
     // Simple claim structure for demo
     struct SimpleClaim {
         uint256 claimId;
+        euint8 encryptedClaimType;
         euint32 encryptedAmount;
-        string claimType;
-        string description;
+        euint32 encryptedPolicyNumber;
+        euint32 encryptedContactInfo;
+        euint32 encryptedDescription;
         address claimant;
         uint256 submissionDate;
         bool isActive;
@@ -447,24 +449,39 @@ contract CipherPolicyHub is SepoliaConfig {
     // ============ SIMPLE CLAIM FUNCTIONS FOR DEMO ============
     
     /**
-     * @notice Submit a simple claim for demo purposes
-     * @param claimType Type of claim (e.g., "Auto", "Health", "Property")
-     * @param description Description of the claim
-     * @param claimAmount Claim amount
+     * @notice Submit an encrypted claim with FHE protection
+     * @param claimTypeEncrypted FHE encrypted claim type (as uint8)
+     * @param claimAmountEncrypted FHE encrypted claim amount
+     * @param policyNumberEncrypted FHE encrypted policy number
+     * @param contactInfoEncrypted FHE encrypted contact information
+     * @param descriptionEncrypted FHE encrypted description
+     * @param inputProof Proof for all encrypted inputs
      */
     function submitSimpleClaim(
-        string memory claimType,
-        string memory description,
-        uint256 claimAmount
+        externalEuint8 claimTypeEncrypted,
+        externalEuint32 claimAmountEncrypted,
+        externalEuint32 policyNumberEncrypted,
+        externalEuint32 contactInfoEncrypted,
+        externalEuint32 descriptionEncrypted,
+        bytes calldata inputProof
     ) public returns (uint256) {
         uint256 claimId = simpleClaimCounter++;
         
-        // Create simple claim with unencrypted amount for testing
+        // Convert external encrypted inputs to internal FHE types
+        euint8 claimType = FHE.fromExternal(claimTypeEncrypted, inputProof);
+        euint32 claimAmount = FHE.fromExternal(claimAmountEncrypted, inputProof);
+        euint32 policyNumber = FHE.fromExternal(policyNumberEncrypted, inputProof);
+        euint32 contactInfo = FHE.fromExternal(contactInfoEncrypted, inputProof);
+        euint32 description = FHE.fromExternal(descriptionEncrypted, inputProof);
+        
+        // Create encrypted claim
         simpleClaims[claimId] = SimpleClaim({
             claimId: claimId,
-            encryptedAmount: FHE.asEuint32(uint32(claimAmount)), // Convert to euint32
-            claimType: claimType,
-            description: description,
+            encryptedClaimType: claimType,
+            encryptedAmount: claimAmount,
+            encryptedPolicyNumber: policyNumber,
+            encryptedContactInfo: contactInfo,
+            encryptedDescription: description,
             claimant: msg.sender,
             submissionDate: block.timestamp,
             isActive: true
@@ -476,8 +493,16 @@ contract CipherPolicyHub is SepoliaConfig {
         // Set ACL permissions for encrypted data
         FHE.allowThis(simpleClaims[claimId].encryptedAmount);
         FHE.allow(simpleClaims[claimId].encryptedAmount, msg.sender);
+        FHE.allowThis(simpleClaims[claimId].encryptedClaimType);
+        FHE.allow(simpleClaims[claimId].encryptedClaimType, msg.sender);
+        FHE.allowThis(simpleClaims[claimId].encryptedPolicyNumber);
+        FHE.allow(simpleClaims[claimId].encryptedPolicyNumber, msg.sender);
+        FHE.allowThis(simpleClaims[claimId].encryptedContactInfo);
+        FHE.allow(simpleClaims[claimId].encryptedContactInfo, msg.sender);
+        FHE.allowThis(simpleClaims[claimId].encryptedDescription);
+        FHE.allow(simpleClaims[claimId].encryptedDescription, msg.sender);
         
-        emit SimpleClaimSubmitted(claimId, msg.sender, claimType);
+        emit SimpleClaimSubmitted(claimId, msg.sender, "encrypted");
         return claimId;
     }
     
@@ -491,14 +516,12 @@ contract CipherPolicyHub is SepoliaConfig {
     }
     
     /**
-     * @notice Get simple claim details (without encrypted amount)
+     * @notice Get simple claim details (without encrypted data)
      * @param claimId Claim ID
-     * @return claimId, claimType, description, claimant, submissionDate, isActive
+     * @return claimId, claimant, submissionDate, isActive
      */
     function getSimpleClaimInfo(uint256 claimId) public view returns (
         uint256,
-        string memory,
-        string memory,
         address,
         uint256,
         bool
@@ -506,8 +529,6 @@ contract CipherPolicyHub is SepoliaConfig {
         SimpleClaim storage claim = simpleClaims[claimId];
         return (
             claim.claimId,
-            claim.claimType,
-            claim.description,
             claim.claimant,
             claim.submissionDate,
             claim.isActive
@@ -523,6 +544,30 @@ contract CipherPolicyHub is SepoliaConfig {
         require(simpleClaims[claimId].claimant != address(0), "Claim does not exist");
         require(simpleClaims[claimId].claimant == msg.sender, "Only claimant can access encrypted data");
         return simpleClaims[claimId].encryptedAmount;
+    }
+    
+    /**
+     * @notice Get all encrypted claim data for decryption
+     * @param claimId Claim ID
+     * @return claimType, amount, policyNumber, contactInfo, description
+     */
+    function getClaimEncryptedData(uint256 claimId) public view returns (
+        euint8,
+        euint32,
+        euint32,
+        euint32,
+        euint32
+    ) {
+        require(simpleClaims[claimId].claimant != address(0), "Claim does not exist");
+        require(simpleClaims[claimId].claimant == msg.sender, "Only claimant can access encrypted data");
+        SimpleClaim storage claim = simpleClaims[claimId];
+        return (
+            claim.encryptedClaimType,
+            claim.encryptedAmount,
+            claim.encryptedPolicyNumber,
+            claim.encryptedContactInfo,
+            claim.encryptedDescription
+        );
     }
     
     /**

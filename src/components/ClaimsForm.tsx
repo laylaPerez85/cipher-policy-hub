@@ -86,10 +86,41 @@ const ClaimsForm = ({ walletAddress, onClaimSubmitted }: ClaimsFormProps) => {
 
     setSubmitting(true);
     try {
+      console.log('🔐 Starting FHE encryption process...');
       console.log('📊 Claim data:', {
         claimType: formData.claimType,
         claimAmount: formData.claimAmount,
+        policyNumber: formData.policyNumber,
+        contactInfo: formData.contactInfo,
         description: formData.description
+      });
+      
+      // Create encrypted input for FHE - encrypt all sensitive data
+      console.log('🏗️ Creating encrypted input with contract:', CONTRACT_ADDRESS, 'address:', address);
+      const input = instance.createEncryptedInput(CONTRACT_ADDRESS, address);
+      
+      // Convert claim type to numeric value for encryption
+      const claimTypeMap: { [key: string]: number } = {
+        'auto': 1,
+        'health': 2,
+        'property': 3,
+        'life': 4,
+        'disability': 5
+      };
+      const claimTypeValue = claimTypeMap[formData.claimType] || 1;
+      
+      console.log('🔢 Adding encrypted values...');
+      input.add8(BigInt(claimTypeValue)); // Encrypted claim type
+      input.add32(BigInt(formData.claimAmount)); // Encrypted claim amount
+      input.add32(BigInt(formData.policyNumber)); // Encrypted policy number
+      input.add32(BigInt(formData.contactInfo.length)); // Encrypted contact info length (simplified)
+      input.add32(BigInt(formData.description.length)); // Encrypted description length (simplified)
+      
+      console.log('🔒 Encrypting input...');
+      const encryptedInput = await input.encrypt();
+      console.log('✅ Encryption completed:', {
+        handles: encryptedInput.handles,
+        inputProof: encryptedInput.inputProof
       });
       
       // Get signer and create contract instance
@@ -98,18 +129,28 @@ const ClaimsForm = ({ walletAddress, onClaimSubmitted }: ClaimsFormProps) => {
       console.log('📄 Creating contract instance...');
       const contract = new Contract(CONTRACT_ADDRESS, CipherPolicyHubABI, signer);
       
-      // Submit simple claim to contract (without FHE for testing)
-      console.log('📤 Submitting claim to contract...');
+      // Submit encrypted claim to contract
+      console.log('📤 Submitting encrypted claim to contract...');
+      console.log('🔧 Converting FHE handles...');
+      const convertedHandles = encryptedInput.handles.map(handle => convertHex(handle));
+      const convertedProof = convertHex(encryptedInput.inputProof);
+      
       console.log('📋 Contract call parameters:', {
-        claimType: formData.claimType,
-        description: formData.description,
-        claimAmount: formData.claimAmount
+        claimTypeEncrypted: convertedHandles[0],
+        claimAmountEncrypted: convertedHandles[1],
+        policyNumberEncrypted: convertedHandles[2],
+        contactInfoEncrypted: convertedHandles[3],
+        descriptionEncrypted: convertedHandles[4],
+        inputProof: convertedProof
       });
       
       const tx = await contract.submitSimpleClaim(
-        formData.claimType,
-        formData.description,
-        BigInt(formData.claimAmount) // Direct claim amount
+        convertedHandles[0], // claimTypeEncrypted
+        convertedHandles[1], // claimAmountEncrypted
+        convertedHandles[2], // policyNumberEncrypted
+        convertedHandles[3], // contactInfoEncrypted
+        convertedHandles[4], // descriptionEncrypted
+        convertedProof // inputProof
       );
       
       await tx.wait();
