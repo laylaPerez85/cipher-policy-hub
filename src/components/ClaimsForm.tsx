@@ -15,6 +15,27 @@ import { useAccount } from "wagmi";
 import { Contract } from "ethers";
 import { CipherPolicyHubABI, CONTRACT_ADDRESS } from "@/lib/contract";
 
+// Convert FHE handles to hex string format
+const convertHex = (handle: any): string => {
+  console.log('Converting handle:', handle, 'type:', typeof handle, 'isUint8Array:', handle instanceof Uint8Array);
+  
+  let formattedHandle: string;
+  if (typeof handle === 'string') {
+    formattedHandle = handle.startsWith('0x') ? handle : `0x${handle}`;
+  } else if (handle instanceof Uint8Array) {
+    formattedHandle = `0x${Array.from(handle).map(b => b.toString(16).padStart(2, '0')).join('')}`;
+  } else if (Array.isArray(handle)) {
+    // Handle array format
+    formattedHandle = `0x${handle.map(b => b.toString(16).padStart(2, '0')).join('')}`;
+  } else {
+    // Fallback: convert to string and ensure 0x prefix
+    formattedHandle = `0x${handle.toString()}`;
+  }
+  
+  console.log('Converted handle:', formattedHandle);
+  return formattedHandle;
+};
+
 interface ClaimsFormProps {
   walletAddress: string;
   onClaimSubmitted: (claim: any) => void;
@@ -94,11 +115,22 @@ const ClaimsForm = ({ walletAddress, onClaimSubmitted }: ClaimsFormProps) => {
       
       // Submit simple encrypted claim to contract
       console.log('📤 Submitting claim to contract...');
+      console.log('🔧 Converting FHE handles...');
+      const convertedHandle = convertHex(encryptedInput.handles[0]);
+      const convertedProof = convertHex(encryptedInput.inputProof);
+      
+      console.log('📋 Contract call parameters:', {
+        claimType: formData.claimType,
+        description: formData.description,
+        encryptedAmount: convertedHandle,
+        inputProof: convertedProof
+      });
+      
       const tx = await contract.submitSimpleClaim(
         formData.claimType,
         formData.description,
-        encryptedInput.handles[0], // FHE encrypted claim amount
-        encryptedInput.inputProof
+        convertedHandle, // FHE encrypted claim amount
+        convertedProof
       );
       
       await tx.wait();
