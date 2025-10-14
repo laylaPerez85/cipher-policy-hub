@@ -685,4 +685,4 @@ export const CipherPolicyHubABI = [
 ] as const;
 
 // Contract address - will be updated after deployment
-export const CONTRACT_ADDRESS = '0xf2B6be2d2cF1d12CD1d70d30B5A997145b143409';
+export const CONTRACT_ADDRESS = '0x66011de9Ea72C9632336779AfD1d3E2522b8B09a';
