@@ -67,7 +67,7 @@ const ClaimsForm = ({ walletAddress, onClaimSubmitted }: ClaimsFormProps) => {
     try {
       // Create encrypted input for FHE - encrypt the claim amount
       const input = instance.createEncryptedInput(CONTRACT_ADDRESS, address);
-      input.add32(parseInt(formData.claimAmount)); // Encrypt claim amount using FHE
+      input.add32(BigInt(formData.claimAmount)); // Encrypt claim amount using FHE
       
       const encryptedInput = await input.encrypt();
       
