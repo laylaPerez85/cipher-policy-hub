@@ -1,8 +1,8 @@
 {
-  "contractAddress": "0x66011de9Ea72C9632336779AfD1d3E2522b8B09a",
+  "contractAddress": "0x57633c67c07ACaD0FDb8d2Bed0cc4c6B3578bE6A",
   "verifier": "0x798CA6bee99dfc5868812D3Ec0bd8c6189c4bf82",
   "adjuster": "0x798CA6bee99dfc5868812D3Ec0bd8c6189c4bf82",
-  "deploymentTime": "2025-10-14T10:25:33.053Z",
+  "deploymentTime": "2025-10-14T11:10:11.035Z",
   "network": "sepolia",
   "abi": [
     "constructor(address,address)",
@@ -20,6 +20,8 @@
     "function claims(uint256) view returns (bytes32,bytes32,bytes32,bool,bool,string,string,string,address,address,uint256,uint256)",
     "function completeSettlement(uint256,string)",
     "function createPolicy(string,string,bytes32,bytes32,uint256,bytes) returns (uint256)",
+    "function createPolicyForUser(address,string,string,uint256,uint256,uint256) returns (uint256)",
+    "function createSimplePolicy(string,string,uint256,uint256,uint256) returns (uint256)",
     "function getClaimEncryptedAmount(uint256) view returns (bytes32)",
     "function getClaimEncryptedData(uint256) view returns (bytes32,bytes32,bytes32,bytes32,bytes32)",
     "function getClaimInfo(uint256) view returns (bytes32,bytes32,bool,bool,string,string,string,address,address,uint256,uint256)",

@@ -533,29 +533,68 @@ export const CipherPolicyHubABI = [
   {
     "inputs": [
       {
-        "internalType": "bytes",
-        "name": "claimTypeEncrypted",
-        "type": "bytes"
+        "internalType": "string",
+        "name": "_policyType",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_description",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_premiumAmount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_coverageAmount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_duration",
+        "type": "uint256"
+      }
+    ],
+    "name": "createSimplePolicy",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "policyId",
+        "type": "uint256"
       },
       {
         "internalType": "bytes",
-        "name": "claimAmountEncrypted",
+        "name": "claimAmount",
         "type": "bytes"
       },
       {
-        "internalType": "bytes",
-        "name": "policyNumberEncrypted",
-        "type": "bytes"
+        "internalType": "string",
+        "name": "claimType",
+        "type": "string"
       },
       {
-        "internalType": "bytes",
-        "name": "contactInfoEncrypted",
-        "type": "bytes"
+        "internalType": "string",
+        "name": "description",
+        "type": "string"
       },
       {
-        "internalType": "bytes",
-        "name": "descriptionEncrypted",
-        "type": "bytes"
+        "internalType": "string",
+        "name": "evidenceHash",
+        "type": "string"
       },
       {
         "internalType": "bytes",
@@ -563,7 +602,7 @@ export const CipherPolicyHubABI = [
         "type": "bytes"
       }
     ],
-    "name": "submitSimpleClaim",
+    "name": "submitClaim",
     "outputs": [
       {
         "internalType": "uint256",
@@ -685,4 +724,4 @@ export const CipherPolicyHubABI = [
 ] as const;
 
 // Contract address - will be updated after deployment
-export const CONTRACT_ADDRESS = '0x66011de9Ea72C9632336779AfD1d3E2522b8B09a';
+export const CONTRACT_ADDRESS = '0x57633c67c07ACaD0FDb8d2Bed0cc4c6B3578bE6A';

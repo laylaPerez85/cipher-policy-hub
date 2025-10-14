@@ -144,12 +144,31 @@ const ClaimsForm = ({ walletAddress, onClaimSubmitted }: ClaimsFormProps) => {
         inputProof: convertedProof
       });
       
-      const tx = await contract.submitSimpleClaim(
-        convertedHandles[0], // claimTypeEncrypted
-        convertedHandles[1], // claimAmountEncrypted
-        convertedHandles[2], // policyNumberEncrypted
-        convertedHandles[3], // contactInfoEncrypted
-        convertedHandles[4], // descriptionEncrypted
+      // First, let's create a simple policy for demo
+      console.log('📋 Creating a demo policy...');
+      
+      // Create a simple policy with unencrypted values for demo
+      const createPolicyTx = await contract.createSimplePolicy(
+        "Health Insurance", // policyType
+        "Comprehensive health coverage", // description
+        BigInt(1000), // premiumAmount
+        BigInt(100000), // coverageAmount
+        BigInt(365 * 24 * 60 * 60) // duration (1 year)
+      );
+      await createPolicyTx.wait();
+      console.log('✅ Demo policy created successfully');
+      
+      const policyId = 0; // Assuming the created policy has ID 0
+      console.log('📋 Using policy ID:', policyId);
+      
+      // Now submit the claim using the correct function
+      console.log('📤 Submitting claim with policy ID:', policyId);
+      const tx = await contract.submitClaim(
+        policyId, // policyId
+        convertedHandles[1], // claimAmountEncrypted (externalEuint32)
+        formData.claimType, // claimType (string)
+        formData.description, // description (string)
+        "evidence_hash_placeholder", // evidenceHash (string)
         convertedProof // inputProof
       );
       

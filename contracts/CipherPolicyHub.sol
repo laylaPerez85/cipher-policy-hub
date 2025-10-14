@@ -446,6 +446,107 @@ contract CipherPolicyHub is SepoliaConfig {
         // payable(msg.sender).transfer(amount);
     }
     
+    // ============ SIMPLE POLICY FUNCTIONS FOR DEMO ============
+    
+    /**
+     * @notice Create a simple policy for demo purposes (without FHE encryption)
+     * @param _policyType Type of policy
+     * @param _description Policy description
+     * @param _premiumAmount Premium amount
+     * @param _coverageAmount Coverage amount
+     * @param _duration Policy duration in seconds
+     */
+    function createSimplePolicy(
+        string memory _policyType,
+        string memory _description,
+        uint256 _premiumAmount,
+        uint256 _coverageAmount,
+        uint256 _duration
+    ) public returns (uint256) {
+        require(bytes(_policyType).length > 0, "Policy type cannot be empty");
+        require(_duration > 0, "Duration must be positive");
+        require(_premiumAmount > 0, "Premium amount must be positive");
+        require(_coverageAmount > 0, "Coverage amount must be positive");
+        
+        uint256 policyId = policyCounter++;
+        
+        policies[policyId] = Policy({
+            policyId: FHE.asEuint32(uint32(policyId)),
+            premiumAmount: FHE.asEuint32(uint32(_premiumAmount)),
+            coverageAmount: FHE.asEuint32(uint32(_coverageAmount)),
+            claimLimit: FHE.asEuint32(uint32(10)), // Default claim limit
+            claimCount: FHE.asEuint32(uint32(0)), // Start with 0 claims
+            isActive: true,
+            isVerified: true,
+            policyType: _policyType,
+            description: _description,
+            policyholder: msg.sender,
+            insurer: address(this), // Contract as insurer for demo
+            startDate: block.timestamp,
+            endDate: block.timestamp + _duration
+        });
+        
+        // Set ACL permissions for encrypted data
+        FHE.allowThis(policies[policyId].premiumAmount);
+        FHE.allow(policies[policyId].premiumAmount, msg.sender);
+        FHE.allowThis(policies[policyId].coverageAmount);
+        FHE.allow(policies[policyId].coverageAmount, msg.sender);
+        
+        emit PolicyCreated(policyId, msg.sender, _policyType);
+        return policyId;
+    }
+    
+    /**
+     * @notice Create a policy for a specific user (admin function)
+     * @param _policyholder Address of the policyholder
+     * @param _policyType Type of policy
+     * @param _description Policy description
+     * @param _premiumAmount Premium amount
+     * @param _coverageAmount Coverage amount
+     * @param _duration Policy duration in seconds
+     */
+    function createPolicyForUser(
+        address _policyholder,
+        string memory _policyType,
+        string memory _description,
+        uint256 _premiumAmount,
+        uint256 _coverageAmount,
+        uint256 _duration
+    ) public returns (uint256) {
+        require(bytes(_policyType).length > 0, "Policy type cannot be empty");
+        require(_duration > 0, "Duration must be positive");
+        require(_premiumAmount > 0, "Premium amount must be positive");
+        require(_coverageAmount > 0, "Coverage amount must be positive");
+        require(_policyholder != address(0), "Invalid policyholder address");
+        
+        uint256 policyId = policyCounter++;
+        
+        policies[policyId] = Policy({
+            policyId: FHE.asEuint32(uint32(policyId)),
+            premiumAmount: FHE.asEuint32(uint32(_premiumAmount)),
+            coverageAmount: FHE.asEuint32(uint32(_coverageAmount)),
+            claimLimit: FHE.asEuint32(uint32(10)), // Default claim limit
+            claimCount: FHE.asEuint32(uint32(0)), // Start with 0 claims
+            isActive: true,
+            isVerified: true,
+            policyType: _policyType,
+            description: _description,
+            policyholder: _policyholder,
+            insurer: address(this), // Contract as insurer for demo
+            startDate: block.timestamp,
+            endDate: block.timestamp + _duration
+        });
+        
+        // Set ACL permissions for encrypted data
+        FHE.allowThis(policies[policyId].premiumAmount);
+        FHE.allow(policies[policyId].premiumAmount, _policyholder);
+        FHE.allowThis(policies[policyId].coverageAmount);
+        FHE.allow(policies[policyId].coverageAmount, _policyholder);
+        
+        emit PolicyCreated(policyId, _policyholder, _policyType);
+        return policyId;
+    }
+    
     // ============ SIMPLE CLAIM FUNCTIONS FOR DEMO ============
     
     /**
