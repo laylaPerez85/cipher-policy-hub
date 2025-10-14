@@ -41,8 +41,8 @@
       ]
     },
     "/Users/nithon/Desktop/Zama/cipher-policy-hub/fhevmTemp/@fhevm/solidity/config/ZamaConfig.sol": {
-      "lastModificationDate": 1760432958192,
-      "contentHash": "53afa19b446a7b49a624afc5d40ac227",
+      "lastModificationDate": 1760434844941,
+      "contentHash": "36810e84dfdd27616b5eaf3b31ddc0a9",
       "sourceName": "@fhevm/solidity/config/ZamaConfig.sol",
       "solcConfig": {
         "version": "0.8.24",
