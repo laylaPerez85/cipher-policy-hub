@@ -447,27 +447,22 @@ contract CipherPolicyHub is SepoliaConfig {
     // ============ SIMPLE CLAIM FUNCTIONS FOR DEMO ============
     
     /**
-     * @notice Submit a simple encrypted claim for demo purposes
+     * @notice Submit a simple claim for demo purposes
      * @param claimType Type of claim (e.g., "Auto", "Health", "Property")
      * @param description Description of the claim
-     * @param encryptedAmount FHE encrypted claim amount
-     * @param inputProof Proof for the encrypted input
+     * @param claimAmount Claim amount
      */
     function submitSimpleClaim(
         string memory claimType,
         string memory description,
-        externalEuint32 encryptedAmount,
-        bytes calldata inputProof
+        uint256 claimAmount
     ) public returns (uint256) {
         uint256 claimId = simpleClaimCounter++;
         
-        // Convert external encrypted amount to internal FHE type
-        euint32 internalEncryptedAmount = FHE.fromExternal(encryptedAmount, inputProof);
-        
-        // Create simple claim
+        // Create simple claim with unencrypted amount for testing
         simpleClaims[claimId] = SimpleClaim({
             claimId: claimId,
-            encryptedAmount: internalEncryptedAmount,
+            encryptedAmount: FHE.asEuint32(uint32(claimAmount)), // Convert to euint32
             claimType: claimType,
             description: description,
             claimant: msg.sender,

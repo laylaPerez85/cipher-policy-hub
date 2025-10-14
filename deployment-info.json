@@ -1,8 +1,8 @@
 {
-  "contractAddress": "0xf2B6be2d2cF1d12CD1d70d30B5A997145b143409",
+  "contractAddress": "0x419ed33FB6469F18151C7701277bD8D46C1A92C0",
   "verifier": "0x798CA6bee99dfc5868812D3Ec0bd8c6189c4bf82",
   "adjuster": "0x798CA6bee99dfc5868812D3Ec0bd8c6189c4bf82",
-  "deploymentTime": "2025-10-14T09:42:55.228Z",
+  "deploymentTime": "2025-10-14T10:04:57.178Z",
   "network": "sepolia",
   "abi": [
     "constructor(address,address)",
@@ -45,7 +45,7 @@
     "function simpleClaimCounter() view returns (uint256)",
     "function simpleClaims(uint256) view returns (uint256,bytes32,string,string,address,uint256,bool)",
     "function submitClaim(uint256,bytes32,string,string,string,bytes) returns (uint256)",
-    "function submitSimpleClaim(string,string,bytes32,bytes) returns (uint256)",
+    "function submitSimpleClaim(string,string,uint256) returns (uint256)",
     "function updateReputation(address,bytes32,bytes)",
     "function userClaims(address,uint256) view returns (uint256)",
     "function verifier() view returns (address)",

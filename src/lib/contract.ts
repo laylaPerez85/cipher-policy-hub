@@ -544,13 +544,8 @@ export const CipherPolicyHubABI = [
       },
       {
         "internalType": "uint256",
-        "name": "encryptedAmount",
+        "name": "claimAmount",
         "type": "uint256"
-      },
-      {
-        "internalType": "bytes",
-        "name": "inputProof",
-        "type": "bytes"
       }
     ],
     "name": "submitSimpleClaim",

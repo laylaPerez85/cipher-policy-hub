@@ -86,36 +86,10 @@ const ClaimsForm = ({ walletAddress, onClaimSubmitted }: ClaimsFormProps) => {
 
     setSubmitting(true);
     try {
-      console.log('🔐 Starting FHE encryption process...');
       console.log('📊 Claim data:', {
         claimType: formData.claimType,
         claimAmount: formData.claimAmount,
         description: formData.description
-      });
-      
-      // Create encrypted input for FHE - encrypt the claim amount
-      console.log('🏗️ Creating encrypted input with contract:', CONTRACT_ADDRESS, 'address:', address);
-      const input = instance.createEncryptedInput(CONTRACT_ADDRESS, address);
-      
-      console.log('💰 Adding claim amount to encryption:', formData.claimAmount, 'as BigInt:', BigInt(formData.claimAmount));
-      input.add32(BigInt(formData.claimAmount)); // Encrypt claim amount using FHE
-      
-      // Add additional dummy values to match FHE SDK expectations
-      console.log('🔢 Adding additional encrypted values...');
-      input.add32(BigInt(0)); // Dummy value 1
-      input.add32(BigInt(0)); // Dummy value 2
-      input.add8(BigInt(0));  // Dummy value 3
-      input.add8(BigInt(0));  // Dummy value 4
-      input.add8(BigInt(0));  // Dummy value 5
-      input.add8(BigInt(0));  // Dummy value 6
-      input.add32(BigInt(0)); // Dummy value 7
-      input.add32(BigInt(0)); // Dummy value 8
-      
-      console.log('🔒 Encrypting input...');
-      const encryptedInput = await input.encrypt();
-      console.log('✅ Encryption completed:', {
-        handles: encryptedInput.handles,
-        inputProof: encryptedInput.inputProof
       });
       
       // Get signer and create contract instance
@@ -124,24 +98,18 @@ const ClaimsForm = ({ walletAddress, onClaimSubmitted }: ClaimsFormProps) => {
       console.log('📄 Creating contract instance...');
       const contract = new Contract(CONTRACT_ADDRESS, CipherPolicyHubABI, signer);
       
-      // Submit simple encrypted claim to contract
+      // Submit simple claim to contract (without FHE for testing)
       console.log('📤 Submitting claim to contract...');
-      console.log('🔧 Converting FHE handles...');
-      const convertedHandle = convertHex(encryptedInput.handles[0]);
-      const convertedProof = convertHex(encryptedInput.inputProof);
-      
       console.log('📋 Contract call parameters:', {
         claimType: formData.claimType,
         description: formData.description,
-        encryptedAmount: convertedHandle,
-        inputProof: convertedProof
+        claimAmount: formData.claimAmount
       });
       
       const tx = await contract.submitSimpleClaim(
         formData.claimType,
         formData.description,
-        convertedHandle, // FHE encrypted claim amount
-        convertedProof
+        BigInt(formData.claimAmount) // Direct claim amount
       );
       
       await tx.wait();
