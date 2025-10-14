@@ -144,22 +144,9 @@ const ClaimsForm = ({ walletAddress, onClaimSubmitted }: ClaimsFormProps) => {
         inputProof: convertedProof
       });
       
-      // First, let's create a simple policy for demo
-      console.log('📋 Creating a demo policy...');
-      
-      // Create a simple policy with unencrypted values for demo
-      const createPolicyTx = await contract.createSimplePolicy(
-        "Health Insurance", // policyType
-        "Comprehensive health coverage", // description
-        BigInt(1000), // premiumAmount
-        BigInt(100000), // coverageAmount
-        BigInt(365 * 24 * 60 * 60) // duration (1 year)
-      );
-      await createPolicyTx.wait();
-      console.log('✅ Demo policy created successfully');
-      
-      const policyId = 0; // Assuming the created policy has ID 0
-      console.log('📋 Using policy ID:', policyId);
+      // Use the existing policy created for the user
+      const policyId = 0; // Policy ID 0 was created for this user
+      console.log('📋 Using existing policy ID:', policyId);
       
       // Now submit the claim using the correct function
       console.log('📤 Submitting claim with policy ID:', policyId);
