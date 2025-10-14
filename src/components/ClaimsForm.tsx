@@ -148,14 +148,14 @@ const ClaimsForm = ({ walletAddress, onClaimSubmitted }: ClaimsFormProps) => {
       const policyId = 0; // Policy ID 0 was created for this user
       console.log('📋 Using existing policy ID:', policyId);
       
-      // Now submit the claim using the correct function
-      console.log('📤 Submitting claim with policy ID:', policyId);
-      const tx = await contract.submitClaim(
-        policyId, // policyId
-        convertedHandles[1], // claimAmountEncrypted (externalEuint32)
-        formData.claimType, // claimType (string)
-        formData.description, // description (string)
-        "evidence_hash_placeholder", // evidenceHash (string)
+      // Now submit the claim using submitSimpleClaim (all encrypted)
+      console.log('📤 Submitting encrypted claim...');
+      const tx = await contract.submitSimpleClaim(
+        convertedHandles[0], // claimTypeEncrypted
+        convertedHandles[1], // claimAmountEncrypted
+        convertedHandles[2], // policyNumberEncrypted
+        convertedHandles[3], // contactInfoEncrypted
+        convertedHandles[4], // descriptionEncrypted
         convertedProof // inputProof
       );
       

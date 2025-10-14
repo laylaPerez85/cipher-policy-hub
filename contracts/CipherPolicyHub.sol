@@ -25,13 +25,14 @@ contract CipherPolicyHub is SepoliaConfig {
     
     struct Claim {
         euint32 claimId;
+        euint8 encryptedClaimType;
         euint32 claimAmount;
         euint32 policyId;
+        euint32 encryptedPolicyNumber;
+        euint32 encryptedContactInfo;
+        euint32 encryptedDescription;
         bool isApproved;
         bool isProcessed;
-        string claimType;
-        string description;
-        string evidenceHash;
         address claimant;
         address adjuster;
         uint256 submissionDate;
@@ -157,10 +158,11 @@ contract CipherPolicyHub is SepoliaConfig {
     
     function submitClaim(
         uint256 policyId,
-        externalEuint32 claimAmount,
-        string memory claimType,
-        string memory description,
-        string memory evidenceHash,
+        externalEuint8 claimTypeEncrypted,
+        externalEuint32 claimAmountEncrypted,
+        externalEuint32 policyNumberEncrypted,
+        externalEuint32 contactInfoEncrypted,
+        externalEuint32 descriptionEncrypted,
         bytes calldata inputProof
     ) public returns (uint256) {
         require(policies[policyId].policyholder == msg.sender, "Only policyholder can submit claims");
@@ -169,18 +171,22 @@ contract CipherPolicyHub is SepoliaConfig {
         
         uint256 claimId = claimCounter++;
         
-        // Convert external encrypted claim amount to internal FHE type
-        euint32 encryptedClaimAmount = FHE.fromExternal(claimAmount, inputProof);
+        // Convert external encrypted inputs to internal FHE types
+        euint8 claimType = FHE.fromExternal(claimTypeEncrypted, inputProof);
+        euint32 claimAmount = FHE.fromExternal(claimAmountEncrypted, inputProof);
+        euint32 policyNumber = FHE.fromExternal(policyNumberEncrypted, inputProof);
+        euint32 contactInfo = FHE.fromExternal(contactInfoEncrypted, inputProof);
+        euint32 description = FHE.fromExternal(descriptionEncrypted, inputProof);
         
         claims[claimId] = Claim({
             claimId: FHE.asEuint32(uint32(claimId)),
-            claimAmount: encryptedClaimAmount,
+            claimAmount: claimAmount,
             policyId: FHE.asEuint32(uint32(policyId)),
             isApproved: false,
             isProcessed: false,
-            claimType: claimType,
-            description: description,
-            evidenceHash: evidenceHash,
+            claimType: "", // Will be stored as encrypted
+            description: "", // Will be stored as encrypted
+            evidenceHash: "", // Will be stored as encrypted
             claimant: msg.sender,
             adjuster: address(0),
             submissionDate: block.timestamp,
