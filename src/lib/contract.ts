@@ -533,29 +533,29 @@ export const CipherPolicyHubABI = [
   {
     "inputs": [
       {
-        "internalType": "uint256",
+        "internalType": "bytes",
         "name": "claimTypeEncrypted",
-        "type": "uint256"
+        "type": "bytes"
       },
       {
-        "internalType": "uint256",
+        "internalType": "bytes",
         "name": "claimAmountEncrypted",
-        "type": "uint256"
+        "type": "bytes"
       },
       {
-        "internalType": "uint256",
+        "internalType": "bytes",
         "name": "policyNumberEncrypted",
-        "type": "uint256"
+        "type": "bytes"
       },
       {
-        "internalType": "uint256",
+        "internalType": "bytes",
         "name": "contactInfoEncrypted",
-        "type": "uint256"
+        "type": "bytes"
       },
       {
-        "internalType": "uint256",
+        "internalType": "bytes",
         "name": "descriptionEncrypted",
-        "type": "uint256"
+        "type": "bytes"
       },
       {
         "internalType": "bytes",
