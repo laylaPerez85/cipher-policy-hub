@@ -100,6 +100,17 @@ const ClaimsForm = ({ walletAddress, onClaimSubmitted }: ClaimsFormProps) => {
       console.log('💰 Adding claim amount to encryption:', formData.claimAmount, 'as BigInt:', BigInt(formData.claimAmount));
       input.add32(BigInt(formData.claimAmount)); // Encrypt claim amount using FHE
       
+      // Add additional dummy values to match FHE SDK expectations
+      console.log('🔢 Adding additional encrypted values...');
+      input.add32(BigInt(0)); // Dummy value 1
+      input.add32(BigInt(0)); // Dummy value 2
+      input.add8(BigInt(0));  // Dummy value 3
+      input.add8(BigInt(0));  // Dummy value 4
+      input.add8(BigInt(0));  // Dummy value 5
+      input.add8(BigInt(0));  // Dummy value 6
+      input.add32(BigInt(0)); // Dummy value 7
+      input.add32(BigInt(0)); // Dummy value 8
+      
       console.log('🔒 Encrypting input...');
       const encryptedInput = await input.encrypt();
       console.log('✅ Encryption completed:', {
