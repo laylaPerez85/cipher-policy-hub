@@ -21,9 +21,12 @@ interface ClaimsFormProps {
 }
 
 const ClaimsForm = ({ walletAddress, onClaimSubmitted }: ClaimsFormProps) => {
+  // Get today's date in YYYY-MM-DD format
+  const today = new Date().toISOString().split('T')[0];
+  
   const [formData, setFormData] = useState({
     claimType: "",
-    incidentDate: "",
+    incidentDate: today, // Default to today
     claimAmount: "",
     description: "",
     policyNumber: "",
