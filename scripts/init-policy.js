@@ -5,7 +5,7 @@ async function main() {
   console.log("🏥 Initializing medical policy for user...");
   
   // Get the contract
-  const contractAddress = "0x57633c67c07ACaD0FDb8d2Bed0cc4c6B3578bE6A";
+  const contractAddress = "0x7802254184B47Ee527da3F8348a18B393646A0ad";
   const [deployer] = await ethers.getSigners();
   
   console.log("📋 Deployer address:", deployer.address);

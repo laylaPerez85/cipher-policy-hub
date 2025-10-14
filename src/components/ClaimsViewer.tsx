@@ -1,125 +1,109 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Eye, Shield, Lock, Unlock, Calendar, FileText } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { useZamaInstance } from "@/hooks/useZamaInstance";
-import { useEthersSigner } from "@/hooks/useEthersSigner";
+import { Button } from "@/components/ui/button";
+import { Shield, Lock, Eye, FileText, TrendingUp, AlertCircle, RefreshCw, Unlock, EyeOff } from "lucide-react";
 import { useAccount } from "wagmi";
-import { Contract } from "ethers";
+import { useReadContract } from "wagmi";
 import { CipherPolicyHubABI, CONTRACT_ADDRESS } from "@/lib/contract";
+import { useDecryptClaim } from "@/hooks/useDecryptClaim";
+import { useToast } from "@/hooks/use-toast";
 
-interface Claim {
-  claimId: number;
-  claimType: string;
-  description: string;
-  claimant: string;
-  submissionDate: number;
-  isActive: boolean;
-  decryptedAmount?: number;
-}
-
-interface ClaimsViewerProps {
-  walletAddress: string;
-}
-
-const ClaimsViewer = ({ walletAddress }: ClaimsViewerProps) => {
-  const [claims, setClaims] = useState<Claim[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [decrypting, setDecrypting] = useState<number | null>(null);
-  const { toast } = useToast();
-  
-  // FHE and wallet integration
+const ClaimsViewer = () => {
   const { address } = useAccount();
-  const { instance } = useZamaInstance();
-  const signerPromise = useEthersSigner();
+  const [claims, setClaims] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [decrypting, setDecrypting] = useState<string | null>(null);
+  const [decryptedData, setDecryptedData] = useState<Record<string, any>>({});
+  const { toast } = useToast();
+  const { decryptClaim } = useDecryptClaim();
 
-  // Load user's claims from blockchain
-  const loadClaims = async () => {
-    if (!address || !signerPromise) return;
+  // 获取合约统计信息
+  const { data: contractStats } = useReadContract({
+    address: CONTRACT_ADDRESS as `0x${string}`,
+    abi: CipherPolicyHubABI,
+    functionName: 'getContractStats',
+  });
+
+  // 获取总理赔数量
+  const { data: totalClaims } = useReadContract({
+    address: CONTRACT_ADDRESS as `0x${string}`,
+    abi: CipherPolicyHubABI,
+    functionName: 'getTotalSimpleClaims',
+  });
+
+  useEffect(() => {
+    // 直接测试合约调用
+    const testContract = async () => {
+      if (!address) return;
+      
+      try {
+        console.log('Testing contract calls...');
+        console.log('Contract address:', CONTRACT_ADDRESS);
+        console.log('User address:', address);
+        
+        // 测试 getUserClaims
+        const { ethers } = await import('ethers');
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const contract = new ethers.Contract(CONTRACT_ADDRESS, CipherPolicyHubABI, provider);
+        
+        console.log('Calling getUserClaims...');
+        const userClaims = await contract.getUserClaims(address);
+        console.log('getUserClaims result:', userClaims);
+        console.log('getUserClaims length:', userClaims.length);
+        
+        // 测试 getTotalSimpleClaims
+        const totalClaims = await contract.getTotalSimpleClaims();
+        console.log('getTotalSimpleClaims:', totalClaims.toString());
+        
+        if (userClaims && userClaims.length > 0) {
+          console.log('Found claims:', userClaims.length);
+          setClaims(userClaims.map((id: string, index: number) => ({
+            id: id,
+            user: address,
+            timestamp: Date.now() / 1000,
+            isActive: true,
+          })));
+        } else {
+          console.log('No claims found');
+          setClaims([]);
+        }
+      } catch (error) {
+        console.error('Contract test failed:', error);
+        setClaims([]);
+      }
+    };
     
+    testContract();
+  }, [address]);
+
+  const handleRefresh = async () => {
     setLoading(true);
-    try {
-      const signer = await signerPromise;
-      const contract = new Contract(CONTRACT_ADDRESS, CipherPolicyHubABI, signer);
-      
-      // Get user's claim IDs
-      const claimIds = await contract.getUserClaims(address);
-      
-      // Get details for each claim
-      const claimsData = await Promise.all(
-        claimIds.map(async (claimId: number) => {
-          const claimInfo = await contract.getSimpleClaimInfo(claimId);
-          return {
-            claimId: claimInfo[0].toString(),
-            claimType: claimInfo[1],
-            description: claimInfo[2],
-            claimant: claimInfo[3],
-            submissionDate: Number(claimInfo[4]),
-            isActive: claimInfo[5]
-          };
-        })
-      );
-      
-      setClaims(claimsData);
-    } catch (err) {
-      console.error('Error loading claims:', err);
-      toast({
-        title: "Failed to Load Claims",
-        description: "Could not load your claims from the blockchain.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
+    // 简单刷新
+    window.location.reload();
+    setLoading(false);
   };
 
-  // Decrypt claim amount using FHE
-  const decryptClaimAmount = async (claimId: number) => {
-    if (!instance || !address || !signerPromise) {
-      toast({
-        title: "Missing Requirements",
-        description: "Please ensure wallet is connected and encryption service is ready.",
-        variant: "destructive",
-      });
-      return;
-    }
-
+  const handleDecrypt = async (claimId: string) => {
+    if (!claimId) return;
+    
     setDecrypting(claimId);
     try {
-      const signer = await signerPromise;
-      const contract = new Contract(CONTRACT_ADDRESS, CipherPolicyHubABI, signer);
-      
-      // Get encrypted amount from contract
-      const encryptedAmount = await contract.getClaimEncryptedAmount(claimId);
-      
-      // Decrypt using FHE instance
-      const decryptedAmount = await instance.userDecrypt(
-        encryptedAmount,
-        CONTRACT_ADDRESS,
-        address
-      );
-      
-      // Update claims with decrypted amount
-      setClaims(prev => prev.map(claim => 
-        claim.claimId === claimId 
-          ? { ...claim, decryptedAmount: parseInt(decryptedAmount) }
-          : claim
-      ));
-      
-      // Mark as decrypted in contract
-      await contract.markClaimAsDecrypted(claimId);
+      const result = await decryptClaim(claimId);
+      setDecryptedData(prev => ({
+        ...prev,
+        [claimId]: result
+      }));
       
       toast({
-        title: "Amount Decrypted",
-        description: `Claim amount: $${decryptedAmount}`,
+        title: "Decryption Successful",
+        description: "Claim data has been decrypted and is now viewable",
       });
-    } catch (err) {
-      console.error('Error decrypting claim:', err);
+    } catch (error) {
+      console.error('Decryption failed:', error);
       toast({
         title: "Decryption Failed",
-        description: "Could not decrypt the claim amount. Please try again.",
+        description: error instanceof Error ? error.message : "An error occurred during decryption",
         variant: "destructive",
       });
     } finally {
@@ -127,147 +111,243 @@ const ClaimsViewer = ({ walletAddress }: ClaimsViewerProps) => {
     }
   };
 
-  useEffect(() => {
-    if (address) {
-      loadClaims();
-    }
-  }, [address]);
-
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp * 1000).toLocaleDateString();
+  const handleHideDecrypted = (claimId: string) => {
+    setDecryptedData(prev => {
+      const newData = { ...prev };
+      delete newData[claimId];
+      return newData;
+    });
   };
 
+  const metrics = [
+    {
+      title: "My Claims",
+      value: claims.length.toString(),
+      change: "submitted",
+      icon: FileText,
+      color: "text-primary",
+    },
+    {
+      title: "Decrypted",
+      value: Object.keys(decryptedData).length.toString(),
+      change: "viewable",
+      icon: Unlock,
+      color: "text-green-500",
+    },
+    {
+      title: "Encrypted",
+      value: (claims.length - Object.keys(decryptedData).length).toString(),
+      change: "locked",
+      icon: Lock,
+      color: "text-warning",
+    },
+    {
+      title: "Total Claims",
+      value: totalClaims ? totalClaims.toString() : "0",
+      change: "all time",
+      icon: TrendingUp,
+      color: "text-accent",
+    },
+  ];
+
   return (
-    <Card className="shadow-card border-border/50">
-      <CardHeader>
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-gradient-security rounded-lg flex items-center justify-center">
-            <FileText className="w-5 h-5 text-security-foreground" />
+    <div className="space-y-6">
+      {/* Metrics Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {metrics.map((metric, index) => (
+          <Card key={metric.title} className="gradient-card border-border/50 shadow-card transition-smooth hover:shadow-glow">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {metric.title}
+              </CardTitle>
+              <metric.icon className={`h-4 w-4 ${metric.color}`} />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-foreground">{metric.value}</div>
+              <p className={`text-xs ${metric.color}`}>
+                {metric.change} from last month
+              </p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Claims Table */}
+      <Card className="gradient-card border-border/50 shadow-card">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center space-x-2">
+                <Shield className="w-5 h-5 text-accent" />
+                <span>My Claims</span>
+              </CardTitle>
+              <CardDescription>
+                Claim data protected by FHE encryption, click to decrypt and view details
+              </CardDescription>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleRefresh}
+                disabled={loading}
+                className="flex items-center space-x-1"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                <span>Refresh</span>
+              </Button>
+              <Badge variant="secondary" className="bg-accent/10 text-accent border-accent/20">
+                FHE Protected
+              </Badge>
+            </div>
           </div>
-          <div>
-            <CardTitle className="text-xl">My Encrypted Claims</CardTitle>
-            <CardDescription>
-              View and decrypt your FHE-encrypted claim data
-            </CardDescription>
-          </div>
-        </div>
-        
-        <div className="flex items-center space-x-2 mt-4">
-          <Badge variant="secondary" className="bg-security/10 text-security border-security/20">
-            <Shield className="w-3 h-3 mr-1" />
-            FHE Encrypted
-          </Badge>
-          <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
-            <FileText className="w-3 h-3 mr-1" />
-            Blockchain Stored
-          </Badge>
-        </div>
-      </CardHeader>
-      
-      <CardContent>
-        {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            <span className="ml-2">Loading claims...</span>
-          </div>
-        ) : claims.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p>No claims found</p>
-            <p className="text-sm">Submit your first encrypted claim to get started</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {claims.map((claim) => (
-              <Card key={claim.claimId} className="border-border/30">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <h3 className="font-semibold">{claim.claimType}</h3>
-                        <Badge variant={claim.isActive ? "default" : "secondary"}>
-                          {claim.isActive ? "Active" : "Inactive"}
-                        </Badge>
-                      </div>
-                      
-                      <p className="text-sm text-muted-foreground mb-2">
-                        {claim.description}
-                      </p>
-                      
-                      <div className="flex items-center space-x-4 text-xs text-muted-foreground">
-                        <div className="flex items-center space-x-1">
-                          <Calendar className="w-3 h-3" />
-                          <span>{formatDate(claim.submissionDate)}</span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          <Shield className="w-3 h-3" />
-                          <span>FHE Encrypted</span>
-                        </div>
-                      </div>
-                      
-                      {claim.decryptedAmount !== undefined ? (
-                        <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-sm">
-                          <div className="flex items-center space-x-1 text-green-700">
-                            <Unlock className="w-3 h-3" />
-                            <span className="font-medium">Decrypted Amount: ${claim.decryptedAmount}</span>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm">
-                          <div className="flex items-center space-x-1 text-yellow-700">
-                            <Lock className="w-3 h-3" />
-                            <span>Amount is encrypted</span>
-                          </div>
-                        </div>
-                      )}
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {claims.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Shield className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
+              <p className="text-lg font-medium mb-2">No Claim Data</p>
+              <p className="text-sm">Submit your first claim to see it here</p>
+            </div>
+          ) : (
+            claims.map((claim, index) => (
+              <div
+                key={claim.id || index}
+                className="flex items-center justify-between p-4 rounded-lg bg-muted/30 border border-border/50 transition-smooth hover:bg-muted/50"
+              >
+                <div className="flex items-center space-x-4">
+                  <div className="flex flex-col">
+                    <span className="font-medium text-foreground">
+                      {claim.id ? `Claim ${claim.id.slice(0, 8)}...` : `Claim #${index + 1}`}
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      {claim.user ? `${claim.user.slice(0, 6)}...${claim.user.slice(-4)}` : 'Unknown User'}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(Number(claim.timestamp) * 1000).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-6">
+                  <div className="text-center">
+                    <div className="text-sm font-medium text-foreground">
+                      {claim.isActive ? 'Active' : 'Inactive'}
                     </div>
-                    
-                    <div className="ml-4">
-                      {claim.decryptedAmount === undefined ? (
-                        <Button
-                          size="sm"
+                    <div className="text-xs text-muted-foreground">Status</div>
+                  </div>
+                  
+                  <Badge 
+                    variant={claim.isActive ? "secondary" : "outline"}
+                    className="min-w-[80px]"
+                  >
+                    {claim.isActive ? "Active" : "Inactive"}
+                  </Badge>
+                  
+                  <div className="flex items-center space-x-2">
+                    {decryptedData[claim.id] ? (
+                      <div className="flex items-center space-x-2">
+                        <Unlock className="w-4 h-4 text-green-500" />
+                        <span className="text-sm text-green-500">Decrypted</span>
+                        <Button 
+                          size="sm" 
                           variant="outline"
-                          onClick={() => decryptClaimAmount(Number(claim.claimId))}
-                          disabled={decrypting === Number(claim.claimId) || !instance}
+                          onClick={() => handleHideDecrypted(claim.id)}
+                          className="text-warning hover:text-warning-glow"
                         >
-                          {decrypting === Number(claim.claimId) ? (
+                          <EyeOff className="w-3 h-3 mr-1" />
+                          Hide
+                        </Button>
+                        <div className="text-xs text-muted-foreground">
+                          Amount: ${decryptedData[claim.id]?.claimAmount || 'N/A'}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center space-x-2">
+                        <Lock className="w-4 h-4 text-warning" />
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleDecrypt(claim.id)}
+                          disabled={decrypting === claim.id}
+                          className="text-primary hover:text-primary-glow"
+                        >
+                          {decrypting === claim.id ? (
                             <>
-                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary mr-1"></div>
+                              <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
                               Decrypting...
                             </>
                           ) : (
-                            <>
-                              <Eye className="w-3 h-3 mr-1" />
-                              Decrypt Amount
-                            </>
+                            "Decrypt & View"
                           )}
                         </Button>
-                      ) : (
-                        <Badge variant="outline" className="text-green-600 border-green-200">
-                          <Unlock className="w-3 h-3 mr-1" />
-                          Decrypted
-                        </Badge>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Decrypted Data Display */}
+      {Object.keys(decryptedData).length > 0 && (
+        <Card className="gradient-card border-border/50 shadow-card">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Eye className="w-5 h-5 text-green-500" />
+              <span>Decrypted Claim Details</span>
+            </CardTitle>
+            <CardDescription>
+              Sensitive data that has been decrypted for viewing
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {Object.entries(decryptedData).map(([claimId, data]) => (
+              <div key={claimId} className="p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-medium text-green-800 dark:text-green-200">
+                    Claim {claimId.slice(0, 8)}...
+                  </h4>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleHideDecrypted(claimId)}
+                    className="text-green-600 hover:text-green-700"
+                  >
+                    <EyeOff className="w-3 h-3 mr-1" />
+                    Hide
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="font-medium text-muted-foreground">Claim Type:</span>
+                    <span className="ml-2 capitalize">{data.claimType}</span>
+                  </div>
+                  <div>
+                    <span className="font-medium text-muted-foreground">Amount:</span>
+                    <span className="ml-2">${data.claimAmount}</span>
+                  </div>
+                  <div>
+                    <span className="font-medium text-muted-foreground">Policy Number:</span>
+                    <span className="ml-2">{data.policyNumber}</span>
+                  </div>
+                  <div>
+                    <span className="font-medium text-muted-foreground">Contact Info:</span>
+                    <span className="ml-2">{data.contactInfo}</span>
+                  </div>
+                  <div className="md:col-span-2">
+                    <span className="font-medium text-muted-foreground">Description:</span>
+                    <p className="mt-1 text-muted-foreground">{data.description}</p>
+                  </div>
+                </div>
+              </div>
             ))}
-          </div>
-        )}
-        
-        <div className="mt-4 pt-4 border-t border-border/30">
-          <Button
-            variant="outline"
-            onClick={loadClaims}
-            disabled={loading}
-            className="w-full"
-          >
-            {loading ? "Refreshing..." : "Refresh Claims"}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 };
 

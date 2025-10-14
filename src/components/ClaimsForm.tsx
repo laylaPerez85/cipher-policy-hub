@@ -11,11 +11,12 @@ import { useToast } from "@/hooks/use-toast";
 import { useSubmitClaim } from "@/hooks/useContract";
 import { useZamaInstance } from "@/hooks/useZamaInstance";
 import { useEthersSigner } from "@/hooks/useEthersSigner";
-import { useAccount } from "wagmi";
+import { useUserPolicies } from "@/hooks/useUserPolicies";
+import { useAccount, useWriteContract } from "wagmi";
 import { Contract } from "ethers";
 import { CipherPolicyHubABI, CONTRACT_ADDRESS } from "@/lib/contract";
 
-// Convert FHE handles to hex string format
+// Convert FHE handles to hex string format (32 bytes for bytes32)
 const convertHex = (handle: any): string => {
   console.log('Converting handle:', handle, 'type:', typeof handle, 'isUint8Array:', handle instanceof Uint8Array);
   
@@ -32,7 +33,16 @@ const convertHex = (handle: any): string => {
     formattedHandle = `0x${handle.toString()}`;
   }
   
-  console.log('Converted handle:', formattedHandle);
+  // Ensure the handle is exactly 32 bytes (64 hex characters + 0x = 66 characters)
+  if (formattedHandle.length < 66) {
+    // Pad with zeros to make it 32 bytes
+    formattedHandle = formattedHandle + '0'.repeat(66 - formattedHandle.length);
+  } else if (formattedHandle.length > 66) {
+    // Truncate to 32 bytes
+    formattedHandle = formattedHandle.substring(0, 66);
+  }
+  
+  console.log('Converted handle (32 bytes):', formattedHandle);
   return formattedHandle;
 };
 
@@ -60,6 +70,8 @@ const ClaimsForm = ({ walletAddress, onClaimSubmitted }: ClaimsFormProps) => {
   const { address } = useAccount();
   const { instance } = useZamaInstance();
   const signerPromise = useEthersSigner();
+  const { writeContractAsync } = useWriteContract();
+  const { userPolicies, loading: policiesLoading, refetch: refetchPolicies } = useUserPolicies();
   
   const canSubmit = useMemo(() => {
     return formData.claimType && formData.claimAmount && formData.description && formData.policyNumber;
@@ -123,13 +135,11 @@ const ClaimsForm = ({ walletAddress, onClaimSubmitted }: ClaimsFormProps) => {
         inputProof: encryptedInput.inputProof
       });
       
-      // Get signer and create contract instance
-      console.log('📝 Getting signer...');
-      const signer = await signerPromise;
-      console.log('📄 Creating contract instance...');
-      const contract = new Contract(CONTRACT_ADDRESS, CipherPolicyHubABI, signer);
+      // Use the existing policy created for the user
+      const policyId = 0; // Policy ID 0 was created for this user
+      console.log('📋 Using existing policy ID:', policyId);
       
-      // Submit encrypted claim to contract
+      // Submit encrypted claim to contract using wagmi writeContract
       console.log('📤 Submitting encrypted claim to contract...');
       console.log('🔧 Converting FHE handles...');
       const convertedHandles = encryptedInput.handles.map(handle => convertHex(handle));
@@ -144,12 +154,9 @@ const ClaimsForm = ({ walletAddress, onClaimSubmitted }: ClaimsFormProps) => {
         inputProof: convertedProof
       });
       
-      // Use the existing policy created for the user
-      const policyId = 0; // Policy ID 0 was created for this user
-      console.log('📋 Using existing policy ID:', policyId);
-      
-      // Now submit the claim using submitSimpleClaim (all encrypted)
-      console.log('📤 Submitting encrypted claim...');
+      // Use direct ethers.js contract call
+      const signer = await signerPromise;
+      const contract = new Contract(CONTRACT_ADDRESS, CipherPolicyHubABI, signer);
       const tx = await contract.submitSimpleClaim(
         convertedHandles[0], // claimTypeEncrypted
         convertedHandles[1], // claimAmountEncrypted
@@ -281,14 +288,34 @@ const ClaimsForm = ({ walletAddress, onClaimSubmitted }: ClaimsFormProps) => {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="policyNumber">Policy Number</Label>
-              <Input
-                id="policyNumber"
-                placeholder="Enter policy number"
+              <Label htmlFor="policyNumber">Select Policy</Label>
+              <Select
                 value={formData.policyNumber}
-                onChange={(e) => updateFormData("policyNumber", e.target.value)}
+                onValueChange={(value) => updateFormData("policyNumber", value)}
                 required
-              />
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select your policy" />
+                </SelectTrigger>
+                <SelectContent>
+                  {policiesLoading ? (
+                    <SelectItem value="loading" disabled>Loading policies...</SelectItem>
+                  ) : userPolicies.length === 0 ? (
+                    <SelectItem value="no-policies" disabled>No policies found. Create a policy first.</SelectItem>
+                  ) : (
+                    userPolicies.map((policy) => (
+                      <SelectItem key={policy.policyId} value={policy.policyId.toString()}>
+                        Policy #{policy.policyId} - {policy.policyType} (Coverage: ${policy.coverageAmount})
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              {userPolicies.length === 0 && !policiesLoading && (
+                <p className="text-sm text-muted-foreground">
+                  No policies found. Please create a policy first.
+                </p>
+              )}
             </div>
           </div>
           

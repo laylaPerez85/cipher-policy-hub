@@ -577,29 +577,29 @@ export const CipherPolicyHubABI = [
   {
     "inputs": [
       {
-        "internalType": "bytes",
+        "internalType": "externalEuint8",
         "name": "claimTypeEncrypted",
-        "type": "bytes"
+        "type": "bytes32"
       },
       {
-        "internalType": "bytes",
+        "internalType": "externalEuint32",
         "name": "claimAmountEncrypted",
-        "type": "bytes"
+        "type": "bytes32"
       },
       {
-        "internalType": "bytes",
+        "internalType": "externalEuint32",
         "name": "policyNumberEncrypted",
-        "type": "bytes"
+        "type": "bytes32"
       },
       {
-        "internalType": "bytes",
+        "internalType": "externalEuint32",
         "name": "contactInfoEncrypted",
-        "type": "bytes"
+        "type": "bytes32"
       },
       {
-        "internalType": "bytes",
+        "internalType": "externalEuint32",
         "name": "descriptionEncrypted",
-        "type": "bytes"
+        "type": "bytes32"
       },
       {
         "internalType": "bytes",
@@ -729,4 +729,4 @@ export const CipherPolicyHubABI = [
 ] as const;
 
 // Contract address - will be updated after deployment
-export const CONTRACT_ADDRESS = '0x57633c67c07ACaD0FDb8d2Bed0cc4c6B3578bE6A';
+export const CONTRACT_ADDRESS = '0x7802254184B47Ee527da3F8348a18B393646A0ad';

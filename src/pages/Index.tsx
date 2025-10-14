@@ -4,6 +4,10 @@ import WalletConnect from "@/components/WalletConnect";
 import ClaimsForm from "@/components/ClaimsForm";
 import ClaimsStatus from "@/components/ClaimsStatus";
 import ClaimsViewer from "@/components/ClaimsViewer";
+import PolicyCreator from "@/components/PolicyCreator";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Index = () => {
   const [walletAddress, setWalletAddress] = useState<string>("");
@@ -28,12 +32,41 @@ const Index = () => {
             <WalletConnect onWalletConnected={handleWalletConnected} />
           </div>
           
-          {/* Claims Form */}
+          {/* Main Content with Tabs */}
           <div className="lg:col-span-2">
-            <ClaimsForm 
-              walletAddress={walletAddress} 
-              onClaimSubmitted={handleClaimSubmitted} 
-            />
+            <Tabs defaultValue="claims" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="claims">Submit Claim</TabsTrigger>
+                <TabsTrigger value="policies">Create Policy</TabsTrigger>
+                <TabsTrigger value="view">View Claims</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="claims" className="mt-6">
+                <ClaimsForm 
+                  walletAddress={walletAddress} 
+                  onClaimSubmitted={handleClaimSubmitted} 
+                />
+              </TabsContent>
+              
+              <TabsContent value="policies" className="mt-6">
+                <PolicyCreator />
+              </TabsContent>
+              
+              <TabsContent value="view" className="mt-6">
+                {walletAddress ? (
+                  <ClaimsViewer />
+                ) : (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>View Claims</CardTitle>
+                      <CardDescription>
+                        Please connect your wallet to view your claims
+                      </CardDescription>
+                    </CardHeader>
+                  </Card>
+                )}
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
         
@@ -41,13 +74,6 @@ const Index = () => {
         <div className="mt-12">
           <ClaimsStatus claims={claims} />
         </div>
-        
-        {/* Claims Viewer - View and Decrypt Claims */}
-        {walletAddress && (
-          <div className="mt-12">
-            <ClaimsViewer walletAddress={walletAddress} />
-          </div>
-        )}
       </main>
     </div>
   );

@@ -171,33 +171,36 @@ contract CipherPolicyHub is SepoliaConfig {
         
         uint256 claimId = claimCounter++;
         
-        // Convert external encrypted inputs to internal FHE types
-        euint8 claimType = FHE.fromExternal(claimTypeEncrypted, inputProof);
-        euint32 claimAmount = FHE.fromExternal(claimAmountEncrypted, inputProof);
-        euint32 policyNumber = FHE.fromExternal(policyNumberEncrypted, inputProof);
-        euint32 contactInfo = FHE.fromExternal(contactInfoEncrypted, inputProof);
-        euint32 description = FHE.fromExternal(descriptionEncrypted, inputProof);
-        
-        claims[claimId] = Claim({
-            claimId: FHE.asEuint32(uint32(claimId)),
-            claimAmount: claimAmount,
-            policyId: FHE.asEuint32(uint32(policyId)),
-            isApproved: false,
-            isProcessed: false,
-            claimType: "", // Will be stored as encrypted
-            description: "", // Will be stored as encrypted
-            evidenceHash: "", // Will be stored as encrypted
-            claimant: msg.sender,
-            adjuster: address(0),
-            submissionDate: block.timestamp,
-            processingDate: 0
-        });
+        // Create claim with encrypted data directly
+        Claim storage newClaim = claims[claimId];
+        newClaim.claimId = FHE.asEuint32(uint32(claimId));
+        newClaim.encryptedClaimType = FHE.fromExternal(claimTypeEncrypted, inputProof);
+        newClaim.claimAmount = FHE.fromExternal(claimAmountEncrypted, inputProof);
+        newClaim.policyId = FHE.asEuint32(uint32(policyId));
+        newClaim.encryptedPolicyNumber = FHE.fromExternal(policyNumberEncrypted, inputProof);
+        newClaim.encryptedContactInfo = FHE.fromExternal(contactInfoEncrypted, inputProof);
+        newClaim.encryptedDescription = FHE.fromExternal(descriptionEncrypted, inputProof);
+        newClaim.isApproved = false;
+        newClaim.isProcessed = false;
+        newClaim.claimant = msg.sender;
+        newClaim.adjuster = address(0);
+        newClaim.submissionDate = block.timestamp;
+        newClaim.processingDate = 0;
         
         // Set ACL permissions for encrypted claim data
         FHE.allowThis(claims[claimId].claimAmount);
         FHE.allowThis(claims[claimId].policyId);
+        FHE.allowThis(claims[claimId].encryptedClaimType);
+        FHE.allowThis(claims[claimId].encryptedPolicyNumber);
+        FHE.allowThis(claims[claimId].encryptedContactInfo);
+        FHE.allowThis(claims[claimId].encryptedDescription);
+        
         FHE.allow(claims[claimId].claimAmount, msg.sender);
         FHE.allow(claims[claimId].policyId, msg.sender);
+        FHE.allow(claims[claimId].encryptedClaimType, msg.sender);
+        FHE.allow(claims[claimId].encryptedPolicyNumber, msg.sender);
+        FHE.allow(claims[claimId].encryptedContactInfo, msg.sender);
+        FHE.allow(claims[claimId].encryptedDescription, msg.sender);
         
         // Update policy claim count using FHE operations
         policies[policyId].claimCount = FHE.add(policies[policyId].claimCount, FHE.asEuint32(1));
@@ -361,9 +364,6 @@ contract CipherPolicyHub is SepoliaConfig {
         euint32 policyId,
         bool isApproved,
         bool isProcessed,
-        string memory claimType,
-        string memory description,
-        string memory evidenceHash,
         address claimant,
         address claimAdjuster,
         uint256 submissionDate,
@@ -375,9 +375,6 @@ contract CipherPolicyHub is SepoliaConfig {
             claim.policyId,
             claim.isApproved,
             claim.isProcessed,
-            claim.claimType,
-            claim.description,
-            claim.evidenceHash,
             claim.claimant,
             claim.adjuster,
             claim.submissionDate,
@@ -572,6 +569,13 @@ contract CipherPolicyHub is SepoliaConfig {
         externalEuint32 descriptionEncrypted,
         bytes calldata inputProof
     ) public returns (uint256) {
+        // Basic validation - ensure user has at least one policy
+        require(policyCounter > 0, "No policies exist");
+        
+        // Check if user has a valid policy (simplified check for demo)
+        // In production, you would check if the user has an active policy
+        // For now, we'll allow any user to submit claims if policies exist
+        
         uint256 claimId = simpleClaimCounter++;
         
         // Convert external encrypted inputs to internal FHE types
@@ -694,5 +698,29 @@ contract CipherPolicyHub is SepoliaConfig {
      */
     function getTotalSimpleClaims() public view returns (uint256) {
         return simpleClaimCounter;
+    }
+    
+    /**
+     * @notice Get encrypted claim data for decryption (for regular claims)
+     * @param claimId Claim ID
+     * @return claimType, amount, policyNumber, contactInfo, description
+     */
+    function getRegularClaimEncryptedData(uint256 claimId) public view returns (
+        euint8,
+        euint32,
+        euint32,
+        euint32,
+        euint32
+    ) {
+        require(claims[claimId].claimant != address(0), "Claim does not exist");
+        require(claims[claimId].claimant == msg.sender, "Only claimant can access encrypted data");
+        Claim storage claim = claims[claimId];
+        return (
+            claim.encryptedClaimType,
+            claim.claimAmount,
+            claim.encryptedPolicyNumber,
+            claim.encryptedContactInfo,
+            claim.encryptedDescription
+        );
     }
 }
