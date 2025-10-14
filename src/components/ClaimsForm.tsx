@@ -65,17 +65,35 @@ const ClaimsForm = ({ walletAddress, onClaimSubmitted }: ClaimsFormProps) => {
 
     setSubmitting(true);
     try {
+      console.log('🔐 Starting FHE encryption process...');
+      console.log('📊 Claim data:', {
+        claimType: formData.claimType,
+        claimAmount: formData.claimAmount,
+        description: formData.description
+      });
+      
       // Create encrypted input for FHE - encrypt the claim amount
+      console.log('🏗️ Creating encrypted input with contract:', CONTRACT_ADDRESS, 'address:', address);
       const input = instance.createEncryptedInput(CONTRACT_ADDRESS, address);
+      
+      console.log('💰 Adding claim amount to encryption:', formData.claimAmount, 'as BigInt:', BigInt(formData.claimAmount));
       input.add32(BigInt(formData.claimAmount)); // Encrypt claim amount using FHE
       
+      console.log('🔒 Encrypting input...');
       const encryptedInput = await input.encrypt();
+      console.log('✅ Encryption completed:', {
+        handles: encryptedInput.handles,
+        inputProof: encryptedInput.inputProof
+      });
       
       // Get signer and create contract instance
+      console.log('📝 Getting signer...');
       const signer = await signerPromise;
+      console.log('📄 Creating contract instance...');
       const contract = new Contract(CONTRACT_ADDRESS, CipherPolicyHubABI, signer);
       
       // Submit simple encrypted claim to contract
+      console.log('📤 Submitting claim to contract...');
       const tx = await contract.submitSimpleClaim(
         formData.claimType,
         formData.description,
