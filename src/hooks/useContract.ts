@@ -1,26 +1,122 @@
-import { useContractWrite, useContractRead } from 'wagmi';
-import { CipherPolicyHubABI } from '../lib/contract';
-
-const CONTRACT_ADDRESS = '0x...'; // Contract address after deployment
+import { useState } from 'react';
+import { useContractWrite, useContractRead, useWriteContract } from 'wagmi';
+import { CipherPolicyHubABI, CONTRACT_ADDRESS } from '../lib/contract';
+import { useZamaInstance } from './useZamaInstance';
+import { useEthersSigner } from './useEthersSigner';
+import { useAccount } from 'wagmi';
+import { Contract } from 'ethers';
 
 export const useCreatePolicy = () => {
-  const { write, isLoading, error } = useContractWrite({
-    address: CONTRACT_ADDRESS as `0x${string}`,
-    abi: CipherPolicyHubABI,
-    functionName: 'createPolicy',
-  });
+  const { address } = useAccount();
+  const { instance } = useZamaInstance();
+  const signerPromise = useEthersSigner();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  return { createPolicy: write, isLoading, error };
+  const createPolicy = async (policyData: {
+    policyType: string;
+    description: string;
+    premiumAmount: number;
+    coverageAmount: number;
+    duration: number;
+  }) => {
+    if (!instance || !address || !signerPromise) {
+      throw new Error('Missing wallet or encryption service');
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Create encrypted input for FHE
+      const input = instance.createEncryptedInput(CONTRACT_ADDRESS, address);
+      input.add32(policyData.premiumAmount);
+      input.add32(policyData.coverageAmount);
+      
+      const encryptedInput = await input.encrypt();
+      
+      // Get signer and create contract instance
+      const signer = await signerPromise;
+      const contract = new Contract(CONTRACT_ADDRESS, CipherPolicyHubABI, signer);
+      
+      // Submit encrypted policy to contract
+      const tx = await contract.createPolicy(
+        policyData.policyType,
+        policyData.description,
+        encryptedInput.handles[0], // encrypted premium amount
+        encryptedInput.handles[1], // encrypted coverage amount
+        policyData.duration,
+        encryptedInput.inputProof
+      );
+      
+      await tx.wait();
+      return tx.hash;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create policy';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return { createPolicy, isLoading, error };
 };
 
 export const useSubmitClaim = () => {
-  const { write, isLoading, error } = useContractWrite({
-    address: CONTRACT_ADDRESS as `0x${string}`,
-    abi: CipherPolicyHubABI,
-    functionName: 'submitClaim',
-  });
+  const { address } = useAccount();
+  const { instance } = useZamaInstance();
+  const signerPromise = useEthersSigner();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  return { submitClaim: write, isLoading, error };
+  const submitClaim = async (claimData: {
+    policyId: number;
+    claimAmount: number;
+    claimType: string;
+    description: string;
+    evidenceHash: string;
+  }) => {
+    if (!instance || !address || !signerPromise) {
+      throw new Error('Missing wallet or encryption service');
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Create encrypted input for FHE
+      const input = instance.createEncryptedInput(CONTRACT_ADDRESS, address);
+      input.add32(claimData.claimAmount);
+      
+      const encryptedInput = await input.encrypt();
+      
+      // Get signer and create contract instance
+      const signer = await signerPromise;
+      const contract = new Contract(CONTRACT_ADDRESS, CipherPolicyHubABI, signer);
+      
+      // Submit encrypted claim to contract
+      const tx = await contract.submitClaim(
+        claimData.policyId,
+        encryptedInput.handles[0], // encrypted claim amount
+        claimData.claimType,
+        claimData.description,
+        claimData.evidenceHash,
+        encryptedInput.inputProof
+      );
+      
+      await tx.wait();
+      return tx.hash;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to submit claim';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return { submitClaim, isLoading, error };
 };
 
 export const useProcessClaim = () => {

@@ -3,6 +3,7 @@ import DashboardHeader from "@/components/DashboardHeader";
 import WalletConnect from "@/components/WalletConnect";
 import ClaimsForm from "@/components/ClaimsForm";
 import ClaimsStatus from "@/components/ClaimsStatus";
+import ClaimsViewer from "@/components/ClaimsViewer";
 
 const Index = () => {
   const [walletAddress, setWalletAddress] = useState<string>("");
@@ -40,6 +41,13 @@ const Index = () => {
         <div className="mt-12">
           <ClaimsStatus claims={claims} />
         </div>
+        
+        {/* Claims Viewer - View and Decrypt Claims */}
+        {walletAddress && (
+          <div className="mt-12">
+            <ClaimsViewer walletAddress={walletAddress} />
+          </div>
+        )}
       </main>
     </div>
   );

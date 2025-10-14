@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,11 @@ import { Badge } from "@/components/ui/badge";
 import { FileText, Shield, Upload, DollarSign } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSubmitClaim } from "@/hooks/useContract";
+import { useZamaInstance } from "@/hooks/useZamaInstance";
+import { useEthersSigner } from "@/hooks/useEthersSigner";
+import { useAccount } from "wagmi";
+import { Contract } from "ethers";
+import { CipherPolicyHubABI, CONTRACT_ADDRESS } from "@/lib/contract";
 
 interface ClaimsFormProps {
   walletAddress: string;
@@ -24,50 +29,69 @@ const ClaimsForm = ({ walletAddress, onClaimSubmitted }: ClaimsFormProps) => {
     policyNumber: "",
     contactInfo: "",
   });
+  const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
-  const { submitClaim, isLoading, error } = useSubmitClaim();
+  
+  // FHE and wallet integration
+  const { address } = useAccount();
+  const { instance } = useZamaInstance();
+  const signerPromise = useEthersSigner();
+  
+  const canSubmit = useMemo(() => {
+    return formData.claimType && formData.claimAmount && formData.description && formData.policyNumber;
+  }, [formData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!walletAddress) {
+    if (!instance || !address || !signerPromise) {
       toast({
-        title: "Wallet Required",
-        description: "Please connect your wallet before submitting a claim.",
+        title: "Missing Requirements",
+        description: "Please ensure wallet is connected and encryption service is ready.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!canSubmit) {
+      toast({
+        title: "Incomplete Form",
+        description: "Please fill in all required fields.",
         variant: "destructive",
       });
       return;
     }
 
+    setSubmitting(true);
     try {
-      // Generate evidence hash from form data
-      const evidenceData = {
-        claimType: formData.claimType,
-        incidentDate: formData.incidentDate,
-        description: formData.description,
-        contactInfo: formData.contactInfo,
-        timestamp: Date.now()
-      };
-      const evidenceHash = btoa(JSON.stringify(evidenceData));
+      // Create encrypted input for FHE - encrypt the claim amount
+      const input = instance.createEncryptedInput(CONTRACT_ADDRESS, address);
+      input.add32(parseInt(formData.claimAmount)); // Encrypt claim amount using FHE
       
-      // Submit claim to contract
-      await submitClaim({
-        args: [
-          BigInt(formData.policyNumber), // policyId
-          BigInt(formData.claimAmount), // claimAmount (will be encrypted by FHE)
-          formData.claimType,
-          formData.description,
-          evidenceHash
-        ]
-      });
+      const encryptedInput = await input.encrypt();
+      
+      // Get signer and create contract instance
+      const signer = await signerPromise;
+      const contract = new Contract(CONTRACT_ADDRESS, CipherPolicyHubABI, signer);
+      
+      // Submit simple encrypted claim to contract
+      const tx = await contract.submitSimpleClaim(
+        formData.claimType,
+        formData.description,
+        encryptedInput.handles[0], // FHE encrypted claim amount
+        encryptedInput.inputProof
+      );
+      
+      await tx.wait();
       
       const claim = {
         id: `CLM-${Date.now()}`,
-        ...formData,
-        walletAddress,
+        claimType: formData.claimType,
+        description: formData.description,
+        amount: formData.claimAmount,
+        walletAddress: address,
         submittedAt: new Date().toISOString(),
         status: "submitted",
         encrypted: true,
-        evidenceHash
+        txHash: tx.hash
       };
       
       onClaimSubmitted(claim);
@@ -83,16 +107,18 @@ const ClaimsForm = ({ walletAddress, onClaimSubmitted }: ClaimsFormProps) => {
       });
       
       toast({
-        title: "Claim Submitted Successfully",
-        description: `Your encrypted claim ${claim.id} has been submitted to the blockchain.`,
+        title: "FHE Encrypted Claim Submitted",
+        description: `Your claim amount has been encrypted and submitted to the blockchain.`,
       });
     } catch (err) {
       console.error('Error submitting claim:', err);
       toast({
         title: "Submission Failed",
-        description: "Failed to submit claim. Please try again.",
+        description: "Failed to submit encrypted claim. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -220,12 +246,12 @@ const ClaimsForm = ({ walletAddress, onClaimSubmitted }: ClaimsFormProps) => {
           
           <Button
             type="submit"
-            disabled={isLoading || !walletAddress}
+            disabled={submitting || !instance || !address}
             variant="professional"
             size="lg"
             className="w-full"
           >
-            {isLoading ? (
+            {submitting ? (
               <>
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground mr-2"></div>
                 Encrypting & Submitting Claim...
@@ -233,14 +259,14 @@ const ClaimsForm = ({ walletAddress, onClaimSubmitted }: ClaimsFormProps) => {
             ) : (
               <>
                 <Shield className="w-4 h-4 mr-2" />
-                Submit Encrypted Claim
+                Submit FHE-Encrypted Claim
               </>
             )}
           </Button>
           
-          {!walletAddress && (
+          {(!instance || !address) && (
             <p className="text-sm text-warning text-center">
-              Please connect your wallet to submit claims
+              Please connect your wallet and ensure encryption service is ready
             </p>
           )}
         </form>
