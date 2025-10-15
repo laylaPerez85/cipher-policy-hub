@@ -30,6 +30,8 @@ Watch the complete FHE encryption workflow in action:
 
 [![FHE Insurance Demo](https://img.shields.io/badge/Demo-Video-blue)](Claim_fhe_compressed.mp4)
 
+**Demo Video**: [Claim_fhe_compressed.mp4](Claim_fhe_compressed.mp4) (3.3MB)
+
 ## 🏗️ Smart Contract
 
 **Contract Address**: `0x0bB6aBf1Acf6526d8866e273a347A046D2825D78`  
