@@ -15,17 +15,23 @@ export const useDecryptClaim = () => {
     }
 
     try {
+      console.log('🔓 Starting decryption process for claim:', claimId);
+      
       const signer = await signerPromise;
       const contract = new Contract(CONTRACT_ADDRESS, CipherPolicyHubABI, signer);
       
       // Get the claim details
+      console.log('📋 Getting claim details...');
       const claimInfo = await contract.getSimpleClaimInfo(claimId);
       console.log('Claim details:', claimInfo);
       
       // Get encrypted claim data
+      console.log('🔐 Getting encrypted claim data...');
       const encryptedData = await contract.getClaimEncryptedData(claimId);
+      console.log('Encrypted data handles:', encryptedData);
       
       // Create keypair for decryption
+      console.log('🔑 Generating keypair...');
       const keypair = instance.generateKeypair();
       
       // Prepare handles for decryption
@@ -41,6 +47,7 @@ export const useDecryptClaim = () => {
       const durationDays = "7";
       const contractAddresses = [CONTRACT_ADDRESS];
       
+      console.log('📝 Creating EIP712 signature...');
       // Create EIP712 signature for decryption
       const eip712 = instance.createEIP712(keypair.publicKey, contractAddresses, startTimeStamp, durationDays);
       
@@ -52,7 +59,7 @@ export const useDecryptClaim = () => {
         eip712.message,
       );
       
-      console.log('Decryption parameters:', {
+      console.log('🔓 Decryption parameters:', {
         handleContractPairs,
         keypair: { publicKey: keypair.publicKey, privateKey: keypair.privateKey },
         signature: signature.replace("0x", ""),
@@ -63,6 +70,7 @@ export const useDecryptClaim = () => {
       });
       
       // Decrypt all encrypted data
+      console.log('🔓 Performing user decryption...');
       const result = await instance.userDecrypt(
         handleContractPairs,
         keypair.privateKey,
@@ -74,6 +82,8 @@ export const useDecryptClaim = () => {
         durationDays,
       );
       
+      console.log('✅ Decryption result:', result);
+      
       // Convert claim type number back to string
       const claimTypeMap: { [key: number]: string } = {
         1: 'auto',
@@ -83,7 +93,7 @@ export const useDecryptClaim = () => {
         5: 'disability'
       };
       
-      return {
+      const decryptedResult = {
         claimId: claimId,
         claimType: claimTypeMap[result[encryptedData.encryptedClaimType]] || 'unknown',
         claimAmount: result[encryptedData.encryptedAmount]?.toString() || '0',
@@ -95,8 +105,17 @@ export const useDecryptClaim = () => {
         isActive: claimInfo.isActive,
         encryptedData
       };
+      
+      console.log('🎉 Decryption completed successfully:', decryptedResult);
+      return decryptedResult;
     } catch (err) {
-      console.error('FHE decryption failed:', err);
+      console.error('❌ FHE decryption failed:', err);
+      console.error('Error details:', {
+        name: err?.name,
+        message: err?.message,
+        stack: err?.stack,
+        code: err?.code
+      });
       throw err;
     }
   };

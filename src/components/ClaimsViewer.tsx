@@ -7,10 +7,13 @@ import { useAccount } from "wagmi";
 import { useReadContract } from "wagmi";
 import { CipherPolicyHubABI, CONTRACT_ADDRESS } from "@/lib/contract";
 import { useDecryptClaim } from "@/hooks/useDecryptClaim";
+import { useWalletConnection } from "@/hooks/useWalletConnection";
 import { useToast } from "@/hooks/use-toast";
+import { ErrorHandler } from "@/utils/errorHandler";
 
 const ClaimsViewer = () => {
   const { address } = useAccount();
+  const { isWalletReady, connectionError } = useWalletConnection();
   const [claims, setClaims] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [decrypting, setDecrypting] = useState<string | null>(null);
@@ -18,11 +21,11 @@ const ClaimsViewer = () => {
   const { toast } = useToast();
   const { decryptClaim } = useDecryptClaim();
 
-  // 获取合约统计信息
+  // 获取合约统计信息 - 使用可用的函数
   const { data: contractStats } = useReadContract({
     address: CONTRACT_ADDRESS as `0x${string}`,
     abi: CipherPolicyHubABI,
-    functionName: 'getContractStats',
+    functionName: 'getTotalSimpleClaims',
   });
 
   // 获取总理赔数量
@@ -33,18 +36,26 @@ const ClaimsViewer = () => {
   });
 
   useEffect(() => {
-    // 直接测试合约调用
+    // 改进的合约调用，增加错误处理和重试机制
     const testContract = async () => {
-      if (!address) return;
+      if (!address || !isWalletReady) {
+        console.log('Wallet not ready or address not available');
+        return;
+      }
       
       try {
         console.log('Testing contract calls...');
         console.log('Contract address:', CONTRACT_ADDRESS);
         console.log('User address:', address);
+        console.log('Wallet ready:', isWalletReady);
         
-        // 测试 getUserClaims
+        // 测试 getUserClaims - 使用更稳定的方法
         const { ethers } = await import('ethers');
         const provider = new ethers.BrowserProvider(window.ethereum);
+        
+        // 等待 provider 准备就绪
+        await provider.ready;
+        
         const contract = new ethers.Contract(CONTRACT_ADDRESS, CipherPolicyHubABI, provider);
         
         console.log('Calling getUserClaims...');
@@ -69,13 +80,22 @@ const ClaimsViewer = () => {
           setClaims([]);
         }
       } catch (error) {
-        console.error('Contract test failed:', error);
+        ErrorHandler.logError('Contract test', error);
+        
+        // 使用改进的错误处理
+        const errorMessage = ErrorHandler.handleWalletError(error);
+        console.error('Contract test failed:', errorMessage);
+        
         setClaims([]);
       }
     };
     
-    testContract();
-  }, [address]);
+    // 只有在钱包准备就绪时才执行
+    if (isWalletReady) {
+      const timeoutId = setTimeout(testContract, 500);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [address, isWalletReady]);
 
   const handleRefresh = async () => {
     setLoading(true);
@@ -149,6 +169,45 @@ const ClaimsViewer = () => {
       color: "text-accent",
     },
   ];
+
+  // 显示连接错误
+  if (connectionError) {
+    return (
+      <div className="space-y-6">
+        <Card className="gradient-card border-red-500/50 shadow-card">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2 text-red-500">
+              <AlertCircle className="w-5 h-5" />
+              <span>Connection Error</span>
+            </CardTitle>
+            <CardDescription>
+              {connectionError}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Please ensure you have:
+              </p>
+              <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
+                <li>MetaMask or compatible wallet installed</li>
+                <li>Connected to Sepolia testnet</li>
+                <li>Account unlocked and accessible</li>
+              </ul>
+              <Button 
+                onClick={() => window.location.reload()} 
+                className="mt-4"
+                variant="outline"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Retry Connection
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
